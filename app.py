@@ -79,15 +79,29 @@ movies, similarity = load_models()
 
 # -------------------- TMDB POSTER FUNCTION --------------------
 def fetch_poster(movie_id):
-    url = (
-        f"https://api.themoviedb.org/3/movie/{movie_id}"
-        f"?api_key={TMDB_API_KEY}&language=en-US"
-    )
-    data = requests.get(url).json()
+    try:
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}"
+        params = {
+            "api_key": st.secrets["TMDB_API_KEY"],
+            "language": "en-US"
+        }
 
-    if data.get("poster_path"):
-        return "https://image.tmdb.org/t/p/w500/" + data["poster_path"]
-    return "https://via.placeholder.com/300x450?text=No+Image"
+        response = requests.get(url, params=params, timeout=5)
+
+        if response.status_code != 200:
+            return "https://via.placeholder.com/300x450?text=No+Poster"
+
+        data = response.json()
+        poster_path = data.get("poster_path")
+
+        if poster_path:
+            return f"https://image.tmdb.org/t/p/w500{poster_path}"
+
+        return "https://via.placeholder.com/300x450?text=No+Poster"
+
+    except Exception:
+        return "https://via.placeholder.com/300x450?text=No+Poster"
+
 
 # -------------------- RECOMMEND FUNCTION (FIXED) --------------------
 def recommend(movie):
@@ -118,10 +132,9 @@ selected_movie = st.selectbox(" Select a movie", movie_list)
 if st.button("Recommend"):
     names, posters = recommend(selected_movie)
 
-    st.markdown("<h2>Recommended Movies</h2>", unsafe_allow_html=True)
-
     cols = st.columns(5)
     for i in range(5):
         with cols[i]:
             st.image(posters[i], use_container_width=True)
             st.caption(names[i])
+
