@@ -90,30 +90,30 @@ def fetch_poster(movie_id):
     return "https://via.placeholder.com/300x450?text=No+Image"
 
 # -------------------- RECOMMEND FUNCTION (FIXED) --------------------
-def recommend(movie_title):
-    index = movies[movies["title"] == movie_title].index[0]
-    distances = similarity[index]
-    movie_indices = sorted(
+def recommend(movie):
+    movie_index = movies[movies["title"] == movie].index[0]
+    distances = similarity[movie_index]
+    movies_list = sorted(
         list(enumerate(distances)),
         reverse=True,
         key=lambda x: x[1]
     )[1:6]
 
-    names = []
-    posters = []
+    recommended_movies = []
+    recommended_posters = []
 
-    for i in movie_indices:
-        movie_id = movies.iloc[i[0]]["movie_id"]  # FIXED
-        names.append(movies.iloc[i[0]]["title"])
-        posters.append(fetch_poster(movie_id))
+    for i in movies_list:
+        movie_id = movies.iloc[i[0]]["id"]  # ✅ FIX
+        recommended_movies.append(movies.iloc[i[0]]["title"])
+        recommended_posters.append(fetch_poster(movie_id))
 
-    return names, posters
+    return recommended_movies, recommended_posters
 
 # -------------------- UI --------------------
 st.markdown("<h1 style='text-align:center;'> Movie Recommendation System</h1>", unsafe_allow_html=True)
 
 movie_list = movies["title"].values
-selected_movie = st.selectbox("🎥 Select a movie", movie_list)
+selected_movie = st.selectbox(" Select a movie", movie_list)
 
 if st.button("Recommend"):
     names, posters = recommend(selected_movie)
