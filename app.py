@@ -1,80 +1,73 @@
 import streamlit as st
 import pickle
 import requests
+import os
 
-# ================= PAGE CONFIG =================
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Movie Recommendation System",
     layout="wide"
 )
 
-# ================= NETFLIX STYLE CSS =================
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #0f0f0f;
-        color: white;
-    }
-    .stApp {
-        background-color: #0f0f0f;
-    }
-    h1, h2, h3 {
-        color: white;
-    }
-    .stButton > button {
-        background-color: #e50914;
-        color: white;
-        border-radius: 6px;
-        border: none;
-        padding: 0.6em 1.2em;
-        font-size: 16px;
-    }
-    .stSelectbox label {
-        color: white;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# ---------------- NETFLIX DARK UI ----------------
+st.markdown("""
+<style>
+body {
+    background-color: #0f0f0f;
+    color: white;
+}
+.stApp {
+    background-color: #0f0f0f;
+}
+h1, h2, h3, h4, h5 {
+    color: white;
+}
+.stButton > button {
+    background-color: #e50914;
+    color: white;
+    border-radius: 6px;
+    font-size: 16px;
+    padding: 0.6em 1.4em;
+    border: none;
+}
+.stSelectbox label {
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
 
+# ---------------- TITLE ----------------
 st.markdown(
     "<h1 style='text-align:center;'> Movie Recommendation System</h1>",
     unsafe_allow_html=True
 )
 
-# ================= TMDB API KEY =================
+# ---------------- LOAD DATA ----------------
+movies = pickle.load(open("movie_list.pkl", "rb"))
+similarity = pickle.load(open("similarity.pkl", "rb"))
+
+# ---------------- TMDB API KEY ----------------
 TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
 
-# ================= LOAD MODEL FILES =================
-@st.cache_resource(show_spinner=True)
-def load_models():
-    movies = pickle.load(open("movie_list.pkl", "rb"))
-    similarity = pickle.load(open("similarity.pkl", "rb"))
-    return movies, similarity
-
-movies, similarity = load_models()
-
-# ================= FETCH POSTER =================
+# ---------------- POSTER FUNCTION ----------------
 def fetch_poster(movie_id):
     try:
-        url = f"https://api.themoviedb.org/3/movie/{int(movie_id)}"
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}"
         params = {"api_key": TMDB_API_KEY}
+        data = requests.get(url, params=params, timeout=5).json()
 
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
-
-        if data.get("poster_path"):
-            return "https://image.tmdb.org/t/p/w500" + data["poster_path"]
+        poster_path = data.get("poster_path")
+        if poster_path:
+            return f"https://image.tmdb.org/t/p/w500{poster_path}"
         else:
             return "https://via.placeholder.com/300x450?text=No+Poster"
-    except Exception:
-        return "https://via.placeholder.com/300x450?text=Error"
+    except:
+        return "https://via.placeholder.com/300x450?text=No+Poster"
 
-# ================= RECOMMEND FUNCTION =================
+# ---------------- RECOMMEND FUNCTION ----------------
 def recommend(movie):
-    movie_index = movies[movies["title"] == movie].index[0]
-    distances = similarity[movie_index]
+    index = movies[movies["title"] == movie].index[0]
+    distances = similarity[index]
 
     movie_list = sorted(
         list(enumerate(distances)),
@@ -82,17 +75,17 @@ def recommend(movie):
         key=lambda x: x[1]
     )[1:6]
 
-    recommended_movies = []
-    recommended_posters = []
+    names = []
+    posters = []
 
     for i in movie_list:
-        movie_id = movies.iloc[i[0]]["id"]  # TMDB ID
-        recommended_movies.append(movies.iloc[i[0]]["title"])
-        recommended_posters.append(fetch_poster(movie_id))
+        movie_id = movies.iloc[i[0]]["id"]
+        names.append(movies.iloc[i[0]]["title"])
+        posters.append(fetch_poster(movie_id))
 
-    return recommended_movies, recommended_posters
+    return names, posters
 
-# ================= UI =================
+# ---------------- UI ----------------
 selected_movie = st.selectbox(
     " Select a movie",
     movies["title"].values
@@ -100,6 +93,8 @@ selected_movie = st.selectbox(
 
 if st.button("Recommend"):
     names, posters = recommend(selected_movie)
+
+    st.markdown("<h2>Recommended Movies</h2>", unsafe_allow_html=True)
 
     cols = st.columns(5)
     for i in range(5):
