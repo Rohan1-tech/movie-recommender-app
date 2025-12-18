@@ -2,49 +2,21 @@ import streamlit as st
 import pickle
 import requests
 import os
-import pandas as pd
+import io
+from PIL import Image
 
-# -------------------- PAGE CONFIG (Netflix-style) --------------------
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Movie Recommendation System",
-    layout="wide",
-    
+    layout="wide"
 )
 
-# -------------------- CUSTOM CSS (Netflix Dark UI) --------------------
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #0f0f0f;
-        color: white;
-    }
-    .stApp {
-        background-color: #0f0f0f;
-    }
-    h1, h2, h3, h4 {
-        color: white;
-    }
-    .stButton>button {
-        background-color: #e50914;
-        color: white;
-        border-radius: 6px;
-        border: none;
-        padding: 0.6em 1.2em;
-        font-size: 16px;
-    }
-    .stSelectbox label {
-        color: white;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("<h1 style='text-align:center;'> Movie Recommendation System</h1>", unsafe_allow_html=True)
 
-# -------------------- TMDB API KEY --------------------
+# ---------------- TMDB API KEY ----------------
 TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
 
-# -------------------- DOWNLOAD MODEL FILES (GitHub Release) --------------------
+# ---------------- DOWNLOAD MODEL FILES ----------------
 @st.cache_resource(show_spinner=True)
 def load_models():
     if not os.path.exists("movie_list.pkl"):
@@ -55,7 +27,7 @@ def load_models():
         )
         r.raise_for_status()
         with open("movie_list.pkl", "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
+            for chunk in r.iter_content(8192):
                 f.write(chunk)
 
     if not os.path.exists("similarity.pkl"):
@@ -66,62 +38,53 @@ def load_models():
         )
         r.raise_for_status()
         with open("similarity.pkl", "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
+            for chunk in r.iter_content(8192):
                 f.write(chunk)
 
     movies = pickle.load(open("movie_list.pkl", "rb"))
     similarity = pickle.load(open("similarity.pkl", "rb"))
-
     return movies, similarity
 
 
 movies, similarity = load_models()
 
-# -------------------- TMDB POSTER FUNCTION --------------------
-def fetch_poster(movie_id, movie_title):
-    api_key = st.secrets["TMDB_API_KEY"]
-
-    # 1 Try by movie ID (fast path)
+# ---------------- POSTER FETCH (LOCAL IMAGE RENDERING) ----------------
+@st.cache_data(show_spinner=False)
+def fetch_poster(movie_title):
     try:
-        url = f"https://api.themoviedb.org/3/movie/{int(movie_id)}"
-        params = {"api_key": api_key}
-        response = requests.get(url, params=params, timeout=5)
-
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("poster_path"):
-                return "https://image.tmdb.org/t/p/w500" + data["poster_path"]
-    except:
-        pass
-
-    # 2 FALLBACK: Search by title (guaranteed)
-    try:
+        # 1️ Search movie by title
         search_url = "https://api.themoviedb.org/3/search/movie"
         params = {
-            "api_key": api_key,
-            "query": movie_title
+            "api_key": TMDB_API_KEY,
+            "query": movie_title,
+            "include_adult": False
         }
-        response = requests.get(search_url, params=params, timeout=5)
-        data = response.json()
+        r = requests.get(search_url, params=params, timeout=10)
+        data = r.json()
 
-        if data.get("results"):
-            poster_path = data["results"][0].get("poster_path")
-            if poster_path:
-                return "https://image.tmdb.org/t/p/w500" + poster_path
-    except:
-        pass
+        if not data.get("results"):
+            return None
 
-    # 3 FINAL FALLBACK
-    return "https://via.placeholder.com/300x450?text=No+Poster"
+        poster_path = data["results"][0].get("poster_path")
+        if not poster_path:
+            return None
 
+        # 2️ Download poster image bytes
+        image_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+        img_response = requests.get(image_url, timeout=10)
 
+        image_bytes = io.BytesIO(img_response.content)
+        return Image.open(image_bytes)
 
-# -------------------- RECOMMEND FUNCTION (FIXED) --------------------
+    except Exception:
+        return None
+
+# ---------------- RECOMMEND FUNCTION ----------------
 def recommend(movie):
-    movie_index = movies[movies["title"] == movie].index[0]
-    distances = similarity[movie_index]
+    index = movies[movies["title"] == movie].index[0]
+    distances = similarity[index]
 
-    movies_list = sorted(
+    movie_list = sorted(
         list(enumerate(distances)),
         reverse=True,
         key=lambda x: x[1]
@@ -130,29 +93,18 @@ def recommend(movie):
     recommended_movies = []
     recommended_posters = []
 
-    for i in movies_list:
-        # GUARANTEED TMDB ID HANDLING
-        if "tmdbId" in movies.columns:
-            movie_id = int(movies.iloc[i[0]]["tmdbId"])
-        else:
-            movie_id = int(movies.iloc[i[0]]["id"])
-
+    for i in movie_list:
         title = movies.iloc[i[0]]["title"]
-
         recommended_movies.append(title)
-        recommended_posters.append(
-            fetch_poster(movie_id, title)
-        )
+        recommended_posters.append(fetch_poster(title))
 
     return recommended_movies, recommended_posters
 
-
-
-# -------------------- UI --------------------
-st.markdown("<h1 style='text-align:center;'> Movie Recommendation System</h1>", unsafe_allow_html=True)
-
-movie_list = movies["title"].values
-selected_movie = st.selectbox(" Select a movie", movie_list)
+# ---------------- UI ----------------
+selected_movie = st.selectbox(
+    "🎥 Select a movie",
+    movies["title"].values
+)
 
 if st.button("Recommend"):
     names, posters = recommend(selected_movie)
@@ -160,6 +112,11 @@ if st.button("Recommend"):
     cols = st.columns(5)
     for i in range(5):
         with cols[i]:
-            st.image(posters[i], use_container_width=True)
+            if posters[i] is not None:
+                st.image(posters[i], use_container_width=True)
+            else:
+                st.image(
+                    "https://via.placeholder.com/300x450?text=No+Poster",
+                    use_container_width=True
+                )
             st.caption(names[i])
-
