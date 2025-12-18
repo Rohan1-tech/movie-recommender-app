@@ -62,6 +62,7 @@ def fetch_poster(movie_id):
 def recommend(movie):
     index = movies[movies["title"] == movie].index[0]
     distances = similarity[index]
+
     movie_list = sorted(
         list(enumerate(distances)),
         reverse=True,
@@ -72,11 +73,12 @@ def recommend(movie):
     recommended_posters = []
 
     for i in movie_list:
-        movie_id = movies.iloc[i[0]].movie_id
-        recommended_movies.append(movies.iloc[i[0]].title)
+        movie_id = movies.iloc[i[0]]["id"]   #  FIXED
+        recommended_movies.append(movies.iloc[i[0]]["title"])
         recommended_posters.append(fetch_poster(movie_id))
 
     return recommended_movies, recommended_posters
+
 
 # ---------------- UI ----------------
 selected_movie = st.selectbox(
