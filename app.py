@@ -5,13 +5,14 @@ import os
 
 @st.cache_resource(show_spinner=False)
 def load_models():
-    with st.spinner("⏳ Downloading model files (first run only)..."):
+    with st.spinner(" Downloading model files (first run only)..."):
         if not os.path.exists("movie_list.pkl"):
             r = requests.get(
-                "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/movie_list.pkl",
-                stream=True,
-                timeout=300
-            )
+    "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/movie_list.pkl",
+    stream=True,
+    timeout=300
+)
+
             r.raise_for_status()
             with open("movie_list.pkl", "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
@@ -19,10 +20,11 @@ def load_models():
 
         if not os.path.exists("similarity.pkl"):
             r = requests.get(
-                "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/similarity.pkl",
-                stream=True,
-                timeout=300
-            )
+    "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/similarity.pkl",
+    stream=True,
+    timeout=300
+)
+
             r.raise_for_status()
             with open("similarity.pkl", "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
