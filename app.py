@@ -79,34 +79,24 @@ movies, similarity = load_models()
 
 # -------------------- TMDB POSTER FUNCTION --------------------
 def fetch_poster(movie_id):
-    try:
-        url = f"https://api.themoviedb.org/3/movie/{movie_id}"
-        params = {
-            "api_key": st.secrets["TMDB_API_KEY"],
-            "language": "en-US"
-        }
+    url = f"https://api.themoviedb.org/3/movie/{int(movie_id)}"
+    params = {"api_key": st.secrets["TMDB_API_KEY"]}
 
-        response = requests.get(url, params=params, timeout=5)
+    response = requests.get(url, params=params, timeout=10)
+    data = response.json()
 
-        if response.status_code != 200:
-            return "https://via.placeholder.com/300x450?text=No+Poster"
-
-        data = response.json()
-        poster_path = data.get("poster_path")
-
-        if poster_path:
-            return f"https://image.tmdb.org/t/p/w500{poster_path}"
-
+    if data.get("poster_path"):
+        return "https://image.tmdb.org/t/p/w500" + data["poster_path"]
+    else:
         return "https://via.placeholder.com/300x450?text=No+Poster"
 
-    except Exception:
-        return "https://via.placeholder.com/300x450?text=No+Poster"
 
 
 # -------------------- RECOMMEND FUNCTION (FIXED) --------------------
 def recommend(movie):
     movie_index = movies[movies["title"] == movie].index[0]
     distances = similarity[movie_index]
+
     movies_list = sorted(
         list(enumerate(distances)),
         reverse=True,
@@ -117,11 +107,17 @@ def recommend(movie):
     recommended_posters = []
 
     for i in movies_list:
-        movie_id = movies.iloc[i[0]]["id"]  # ✅ FIX
+        #  GUARANTEED TMDB ID HANDLING
+        if "tmdbId" in movies.columns:
+            movie_id = int(movies.iloc[i[0]]["tmdbId"])
+        else:
+            movie_id = int(movies.iloc[i[0]]["id"])
+
         recommended_movies.append(movies.iloc[i[0]]["title"])
         recommended_posters.append(fetch_poster(movie_id))
 
     return recommended_movies, recommended_posters
+
 
 # -------------------- UI --------------------
 st.markdown("<h1 style='text-align:center;'> Movie Recommendation System</h1>", unsafe_allow_html=True)
