@@ -78,17 +78,41 @@ def load_models():
 movies, similarity = load_models()
 
 # -------------------- TMDB POSTER FUNCTION --------------------
-def fetch_poster(movie_id):
-    url = f"https://api.themoviedb.org/3/movie/{int(movie_id)}"
-    params = {"api_key": st.secrets["TMDB_API_KEY"]}
+def fetch_poster(movie_id, movie_title):
+    api_key = st.secrets["TMDB_API_KEY"]
 
-    response = requests.get(url, params=params, timeout=10)
-    data = response.json()
+    # 1 Try by movie ID (fast path)
+    try:
+        url = f"https://api.themoviedb.org/3/movie/{int(movie_id)}"
+        params = {"api_key": api_key}
+        response = requests.get(url, params=params, timeout=5)
 
-    if data.get("poster_path"):
-        return "https://image.tmdb.org/t/p/w500" + data["poster_path"]
-    else:
-        return "https://via.placeholder.com/300x450?text=No+Poster"
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("poster_path"):
+                return "https://image.tmdb.org/t/p/w500" + data["poster_path"]
+    except:
+        pass
+
+    # 2 FALLBACK: Search by title (guaranteed)
+    try:
+        search_url = "https://api.themoviedb.org/3/search/movie"
+        params = {
+            "api_key": api_key,
+            "query": movie_title
+        }
+        response = requests.get(search_url, params=params, timeout=5)
+        data = response.json()
+
+        if data.get("results"):
+            poster_path = data["results"][0].get("poster_path")
+            if poster_path:
+                return "https://image.tmdb.org/t/p/w500" + poster_path
+    except:
+        pass
+
+    # 3 FINAL FALLBACK
+    return "https://via.placeholder.com/300x450?text=No+Poster"
 
 
 
@@ -107,16 +131,21 @@ def recommend(movie):
     recommended_posters = []
 
     for i in movies_list:
-        #  GUARANTEED TMDB ID HANDLING
+        # GUARANTEED TMDB ID HANDLING
         if "tmdbId" in movies.columns:
             movie_id = int(movies.iloc[i[0]]["tmdbId"])
         else:
             movie_id = int(movies.iloc[i[0]]["id"])
 
-        recommended_movies.append(movies.iloc[i[0]]["title"])
-        recommended_posters.append(fetch_poster(movie_id))
+        title = movies.iloc[i[0]]["title"]
+
+        recommended_movies.append(title)
+        recommended_posters.append(
+            fetch_poster(movie_id, title)
+        )
 
     return recommended_movies, recommended_posters
+
 
 
 # -------------------- UI --------------------
