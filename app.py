@@ -1,22 +1,52 @@
 import streamlit as st
 import pickle
 import requests
-import os
-import io
-from PIL import Image
 
-# ---------------- TMDB API KEY (HUGGING FACE) ----------------
-TMDB_API_KEY = os.environ["TMDB_API_KEY"]
-
-# ---------------- PAGE CONFIG ----------------
+# ================= PAGE CONFIG =================
 st.set_page_config(
     page_title="Movie Recommendation System",
     layout="wide"
 )
 
-st.markdown("<h1 style='text-align:center;'> Movie Recommendation System</h1>", unsafe_allow_html=True)
+# ================= NETFLIX STYLE CSS =================
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #0f0f0f;
+        color: white;
+    }
+    .stApp {
+        background-color: #0f0f0f;
+    }
+    h1, h2, h3 {
+        color: white;
+    }
+    .stButton > button {
+        background-color: #e50914;
+        color: white;
+        border-radius: 6px;
+        border: none;
+        padding: 0.6em 1.2em;
+        font-size: 16px;
+    }
+    .stSelectbox label {
+        color: white;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# ---------------- LOAD MODEL FILES (LOCAL) ----------------
+st.markdown(
+    "<h1 style='text-align:center;'> Movie Recommendation System</h1>",
+    unsafe_allow_html=True
+)
+
+# ================= TMDB API KEY =================
+TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
+
+# ================= LOAD MODEL FILES =================
 @st.cache_resource(show_spinner=True)
 def load_models():
     movies = pickle.load(open("movie_list.pkl", "rb"))
@@ -25,42 +55,26 @@ def load_models():
 
 movies, similarity = load_models()
 
-# ---------------- POSTER FETCH (WORKING ON HF) ----------------
-@st.cache_data(show_spinner=False)
-def fetch_poster(movie_title):
+# ================= FETCH POSTER =================
+def fetch_poster(movie_id):
     try:
-        # 1️ Search movie by title
-        search_url = "https://api.themoviedb.org/3/search/movie"
-        params = {
-            "api_key": TMDB_API_KEY,
-            "query": movie_title,
-            "include_adult": False
-        }
+        url = f"https://api.themoviedb.org/3/movie/{int(movie_id)}"
+        params = {"api_key": TMDB_API_KEY}
 
-        r = requests.get(search_url, params=params, timeout=10)
-        data = r.json()
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
 
-        if not data.get("results"):
-            return None
-
-        poster_path = data["results"][0].get("poster_path")
-        if not poster_path:
-            return None
-
-        # 2️  Download poster image
-        image_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
-        img_response = requests.get(image_url, timeout=10)
-
-        image_bytes = io.BytesIO(img_response.content)
-        return Image.open(image_bytes)
-
+        if data.get("poster_path"):
+            return "https://image.tmdb.org/t/p/w500" + data["poster_path"]
+        else:
+            return "https://via.placeholder.com/300x450?text=No+Poster"
     except Exception:
-        return None
+        return "https://via.placeholder.com/300x450?text=Error"
 
-# ---------------- RECOMMEND FUNCTION ----------------
+# ================= RECOMMEND FUNCTION =================
 def recommend(movie):
-    index = movies[movies["title"] == movie].index[0]
-    distances = similarity[index]
+    movie_index = movies[movies["title"] == movie].index[0]
+    distances = similarity[movie_index]
 
     movie_list = sorted(
         list(enumerate(distances)),
@@ -72,13 +86,13 @@ def recommend(movie):
     recommended_posters = []
 
     for i in movie_list:
-        title = movies.iloc[i[0]]["title"]
-        recommended_movies.append(title)
-        recommended_posters.append(fetch_poster(title))
+        movie_id = movies.iloc[i[0]]["id"]  # TMDB ID
+        recommended_movies.append(movies.iloc[i[0]]["title"])
+        recommended_posters.append(fetch_poster(movie_id))
 
     return recommended_movies, recommended_posters
 
-# ---------------- UI ----------------
+# ================= UI =================
 selected_movie = st.selectbox(
     " Select a movie",
     movies["title"].values
@@ -90,11 +104,5 @@ if st.button("Recommend"):
     cols = st.columns(5)
     for i in range(5):
         with cols[i]:
-            if posters[i] is not None:
-                st.image(posters[i], use_container_width=True)
-            else:
-                st.image(
-                    "https://via.placeholder.com/300x450?text=No+Poster",
-                    use_container_width=True
-                )
+            st.image(posters[i], use_container_width=True)
             st.caption(names[i])
