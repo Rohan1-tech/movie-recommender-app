@@ -38,23 +38,52 @@ h1, h2, h3, h4, h5 {
 
 # ---------------- TITLE ----------------
 st.markdown(
-    "<h1 style='text-align:center;'> Movie Recommendation System</h1>",
+    "<h1 style='text-align:center;'>  Movie Recommendation System</h1>",
     unsafe_allow_html=True
 )
 
-# ---------------- LOAD DATA ----------------
-movies = pickle.load(open("movie_list.pkl", "rb"))
-similarity = pickle.load(open("similarity.pkl", "rb"))
-
 # ---------------- TMDB API KEY ----------------
 TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
+
+# ---------------- DOWNLOAD MODEL FILES ----------------
+@st.cache_resource(show_spinner=True)
+def load_models():
+    if not os.path.exists("movie_list.pkl"):
+        r = requests.get(
+            "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/movie_list.pkl",
+            stream=True,
+            timeout=300
+        )
+        r.raise_for_status()
+        with open("movie_list.pkl", "wb") as f:
+            for chunk in r.iter_content(8192):
+                f.write(chunk)
+
+    if not os.path.exists("similarity.pkl"):
+        r = requests.get(
+            "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/similarity.pkl",
+            stream=True,
+            timeout=300
+        )
+        r.raise_for_status()
+        with open("similarity.pkl", "wb") as f:
+            for chunk in r.iter_content(8192):
+                f.write(chunk)
+
+    movies = pickle.load(open("movie_list.pkl", "rb"))
+    similarity = pickle.load(open("similarity.pkl", "rb"))
+    return movies, similarity
+
+
+movies, similarity = load_models()
 
 # ---------------- POSTER FUNCTION ----------------
 def fetch_poster(movie_id):
     try:
         url = f"https://api.themoviedb.org/3/movie/{movie_id}"
         params = {"api_key": TMDB_API_KEY}
-        data = requests.get(url, params=params, timeout=5).json()
+        response = requests.get(url, params=params, timeout=5)
+        data = response.json()
 
         poster_path = data.get("poster_path")
         if poster_path:
