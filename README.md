@@ -1,6 +1,7 @@
 #  Movie Recommendation System
 
 A Netflix-style **content-based movie recommendation system** built using **Python**, **Machine Learning**, and **Streamlit**.
+
 A Netflix-style, content-based movie recommendation system built using Python and Streamlit.
 The application recommends similar movies based on content features such as genres, overview, cast, and crew.
 Text data is processed using TF-IDF vectorization and Cosine Similarity to measure movie similarity.
