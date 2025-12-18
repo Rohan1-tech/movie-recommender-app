@@ -43,9 +43,8 @@ cd movie-recommender-app
 
 
 
-Live Demo
-
-Coming soon (Streamlit Cloud)
+Live App:
+https://movie-recommender-app-kvanc6ewmn5sh9kl3zbcnx.streamlit.app/
 
 
 
@@ -60,5 +59,7 @@ Author
 
 Rohan Pagare
 Aspiring Data Scientist
+GitHub: https://github.com/Rohan1-tech
+LinkedIn: https://linkedin.com/in/rohan-pagare-1bab0a2a9
 
 
