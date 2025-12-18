@@ -3,20 +3,34 @@ import pickle
 import requests
 import os
 
-# ---------------- DOWNLOAD MODEL FILES ----------------
-def download_file(url, filename):
-    if not os.path.exists(filename):
-        r = requests.get(url, stream=True)
-        r.raise_for_status()
-        with open(filename, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+@st.cache_resource(show_spinner=False)
+def load_models():
+    with st.spinner("⏳ Downloading model files (first run only)..."):
+        if not os.path.exists("movie_list.pkl"):
+            r = requests.get(
+                "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/movie_list.pkl",
+                stream=True,
+                timeout=300
+            )
+            r.raise_for_status()
+            with open("movie_list.pkl", "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
-MOVIE_LIST_URL = "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/movie_list.pkl"
-SIMILARITY_URL = "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/similarity.pkl"
+        if not os.path.exists("similarity.pkl"):
+            r = requests.get(
+                "https://github.com/Rohan1-tech/movie-recommender-app/releases/download/v1/similarity.pkl",
+                stream=True,
+                timeout=300
+            )
+            r.raise_for_status()
+            with open("similarity.pkl", "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
-download_file(MOVIE_LIST_URL, "movie_list.pkl")
-download_file(SIMILARITY_URL, "similarity.pkl")
+    movies = pickle.load(open("movie_list.pkl", "rb"))
+    similarity = pickle.load(open("similarity.pkl", "rb"))
+    return movies, similarity
 
-movies = pickle.load(open("movie_list.pkl", "rb"))
-similarity = pickle.load(open("similarity.pkl", "rb"))
+
+movies, similarity = load_models()
